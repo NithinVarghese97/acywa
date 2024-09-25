@@ -4,8 +4,8 @@ from flask_cors import CORS
 import os
 from dotenv import load_dotenv
 from langchain_community.document_loaders import TextLoader
-from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.chat_models import ChatOpenAI
+from langchain_community.embeddings import OpenAIEmbeddings
+from langchain_community.chat_models import ChatOpenAI
 
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.chains.combine_documents import create_stuff_documents_chain
@@ -22,16 +22,22 @@ app = Flask(__name__)
 CORS(app)  # Enable CORS for frontend interaction
 
 # Set OpenAI API key from environment variable
-openai.api_key = os.getenv("OPENAI_API_KEY")
+openai_api_key = os.getenv("OPENAI_API_KEY")
+if not openai_api_key:
+    raise ValueError("OpenAI API key is not set in the environment variables.")
+openai.api_key = openai_api_key
 
 # Function to load text file
 def load_text(file_path):
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"The file {file_path} was not found.")
+    
     loader = TextLoader(file_path, encoding='utf-8')
     return loader.load()
 
 # Function to create vector store for document embeddings
 def create_db(docs):
-    embedding = OpenAIEmbeddings(openai_api_key=os.getenv("OPENAI_API_KEY"))
+    embedding = OpenAIEmbeddings(openai_api_key=openai_api_key)
     return Chroma.from_documents(docs, embedding=embedding)
 
 # Function to create the LangChain retrieval chain
@@ -39,7 +45,7 @@ def create_chain(vectorStore):
     model = ChatOpenAI(
         model="gpt-4-turbo",
         temperature=0.4,
-        api_key=os.getenv("OPENAI_API_KEY")
+        api_key=openai_api_key
     )
 
     # Define prompt for generating responses
@@ -94,6 +100,7 @@ def index():
 def chat():
     data = request.get_json()
     user_message = data.get("message", "")
+    chat_history = data.get("chat_history", [])
 
     if user_message:
         try:
@@ -103,9 +110,6 @@ def chat():
             vectorStore = create_db(all_docs)
             chain = create_chain(vectorStore)
             
-            # Chat history setup
-            chat_history = []  # This can be persisted if needed across sessions
-            
             # Process the user message through LangChain
             bot_reply = process_chat(chain, user_message, chat_history)
             
@@ -113,7 +117,7 @@ def chat():
             chat_history.append(HumanMessage(content=user_message))
             chat_history.append(AIMessage(content=bot_reply))
 
-            return jsonify({"reply": bot_reply})
+            return jsonify({"reply": bot_reply, "chat_history": chat_history})
         except Exception as e:
             print(f"Error: {e}")
             return jsonify({"reply": "Sorry, there was an error processing your request."}), 500
@@ -121,4 +125,4 @@ def chat():
     return jsonify({"reply": "No message provided."}), 400
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
