@@ -3,10 +3,8 @@ import openai
 from flask_cors import CORS
 import os
 from dotenv import load_dotenv
+from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_community.document_loaders import TextLoader
-from langchain_community.embeddings import OpenAIEmbeddings
-from langchain_community.chat_models import ChatOpenAI
-
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_community.vectorstores import Chroma
@@ -90,6 +88,14 @@ def process_chat(chain, question, chat_history):
     })
     return response["answer"]
 
+# Helper function to serialize HumanMessage and AIMessage objects
+def serialize_message(message):
+    if isinstance(message, HumanMessage):
+        return {"type": "human", "content": message.content}
+    elif isinstance(message, AIMessage):
+        return {"type": "ai", "content": message.content}
+    return {}
+
 # Root route to handle homepage
 @app.route('/')
 def index():
@@ -117,7 +123,10 @@ def chat():
             chat_history.append(HumanMessage(content=user_message))
             chat_history.append(AIMessage(content=bot_reply))
 
-            return jsonify({"reply": bot_reply, "chat_history": chat_history})
+            # Serialize chat history before returning
+            serialized_history = [serialize_message(msg) for msg in chat_history]
+
+            return jsonify({"reply": bot_reply, "chat_history": serialized_history})
         except Exception as e:
             print(f"Error: {e}")
             return jsonify({"reply": "Sorry, there was an error processing your request."}), 500
