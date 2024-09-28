@@ -108,17 +108,27 @@ def chat():
     user_message = data.get("message", "")
     chat_history = data.get("chat_history", [])
 
+    # Debugging output to inspect data
+    print(f"Received message: {user_message}")
+    print(f"Chat history: {chat_history}")
+
     if user_message:
         try:
             # Load documents and set up vector store (for demo purposes; adjust as needed)
+            print("Loading documents...")
             text_docs = load_text('Maps Prompts.txt')
             all_docs = text_docs
+
+            print("Creating vector store...")
             vectorStore = create_db(all_docs)
+            print("Creating LangChain retrieval chain...")
             chain = create_chain(vectorStore)
             
             # Process the user message through LangChain
+            print("Processing user message through LangChain...")
             bot_reply = process_chat(chain, user_message, chat_history)
-            
+            print(f"Bot reply: {bot_reply}")
+
             # Append the messages to chat history
             chat_history.append(HumanMessage(content=user_message))
             chat_history.append(AIMessage(content=bot_reply))
@@ -128,10 +138,12 @@ def chat():
 
             return jsonify({"reply": bot_reply, "chat_history": serialized_history})
         except Exception as e:
-            print(f"Error: {e}")
-            return jsonify({"reply": "Sorry, there was an error processing your request."}), 500
+            print(f"Error during chat processing: {e}")
+            return jsonify({"reply": "Oops! Something went wrong."}), 500
 
     return jsonify({"reply": "No message provided."}), 400
 
 if __name__ == "__main__":
+    # Print API key to ensure it's loaded correctly
+    print(f"OpenAI API Key: {openai_api_key}")
     app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
