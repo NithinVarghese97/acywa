@@ -52,15 +52,17 @@ class Assistant:
             api_key=openai_api_key
         )
 
-        # Define the prompt template for responses
+        # Define the prompt template for responses, now including `context`
         prompt = ChatPromptTemplate.from_messages([
             ("system", f"You are a helpful AI assistant chatbot focused on {self.context}. "
                        f"Your primary goal is to help users navigate the platform."),
             MessagesPlaceholder(variable_name="chat_history"),
             ("human", "{input}"),
             ("system", f"Please ensure that you give concise, clear responses based on the context of {self.context}. "
-                       "Provide a maximum of three sentences, and suggest two follow-up questions.")
-        ])
+                       "Provide a maximum of three sentences, and suggest two follow-up questions."),
+            # Add context to the prompt
+            ("system", "{context}")
+        ], input_variables=["chat_history", "input", "context"])
 
         # Create the chain that will process documents and responses
         chain = create_stuff_documents_chain(
@@ -95,7 +97,7 @@ class Assistant:
         response = self.chain.invoke({
             "input": question,
             "chat_history": self.chat_history,
-            "context": self.context
+            "context": self.context  # Pass context to the chain
         })
         self.chat_history.append(HumanMessage(content=question))
         self.chat_history.append(AIMessage(content=response["answer"]))
