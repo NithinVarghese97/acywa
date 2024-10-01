@@ -34,7 +34,7 @@ class Assistant:
         self.vectorStore = self.create_db(self.docs)
         self.chain = self.create_chain()
         self.chat_history = []
-        self.is_new_user = False  # Track whether it's a new user or not
+        self.is_new_user = None  # Track if it's a new user, start with None
 
     # Function to load the text document
     def load_text(self, file_path):
@@ -90,6 +90,18 @@ class Assistant:
             chain
         )
 
+    # Function to guide new users
+    def handle_new_user(self):
+        instructions = (
+            "Great! Let's start by familiarising you with the map platform.\n"
+            "You can start by reading the help screens. Please follow these steps:\n"
+            "1. Click on Atlas maps.\n"
+            "2. Navigate to the right-hand side pane.\n"
+            "3. Click the 'i' icon in the top right-hand corner.\n"
+            "This will open the help screens. There are three screens covering different aspects of the platform: the National scale, Atlas menu items, and map interactions."
+        )
+        return instructions
+
     # Truncate chat history to avoid exceeding token limits
     def truncate_chat_history(self, history, max_tokens):
         total_tokens = 0
@@ -108,6 +120,17 @@ class Assistant:
 
     # Function to process the chat and generate responses
     def process_chat(self, question):
+        # Check if the user is new
+        if self.is_new_user is None:
+            if question.lower() in ['yes', 'y']:
+                self.is_new_user = True
+                return self.handle_new_user()
+            elif question.lower() in ['no', 'n']:
+                self.is_new_user = False
+                return "Welcome back! What can I assist you with today?"
+            else:
+                return "Are you new to our interactive map platform? (Yes/No)"
+
         # Truncate chat history to avoid exceeding token limits
         truncated_history = self.truncate_chat_history(self.chat_history, self.MAX_HISTORY_TOKENS)
         
@@ -125,6 +148,7 @@ class Assistant:
     # Function to reset chat history (for new users or conversation reset)
     def reset_chat_history(self):
         self.chat_history = []
+        self.is_new_user = None  # Reset the user state
 
 # Map-specific assistant class (inheriting from Assistant)
 class MapAssistant(Assistant):
@@ -172,24 +196,6 @@ def start_console_chat():
 
     print("Hello! Welcome to the Atlas Map Navigation Assistant! Are you new to our interactive map platform? (Yes/No)")
 
-    user_response = input("You: ").lower()
-    if user_response in ['yes', 'y']:
-        assistant.is_new_user = True
-        print("Great! Let's start by familiarising you with the map platform.")
-        print("You can start by reading the help screens. Please follow these steps:")
-        print("1. Click on Atlas maps")
-        print("2. Navigate to the right-hand side pane")
-        print("3. Click the 'i' icon in the top right-hand corner")
-        print("This will open the help screens. There are three screens covering different aspects of the platform: the National scale, Atlas menu items, and map interactions.")
-        print("Are you ready to continue? (Yes/No)")
-        continue_response = input("You: ").lower()
-        if continue_response in ['yes', 'y']:
-            print("Great! What specific question can I assist you with first?")
-        else:
-            print("Alright. Feel free to ask any questions when you're ready to explore further.")
-    else:
-        print("Welcome back! I'm here to assist you with any questions about our map platform. What can I help you with today?")
-
     while True:
         user_input = input("You: ")
         if user_input.lower() == 'exit':
@@ -214,4 +220,4 @@ if __name__ == '__main__':
         # Run the console-based chat
         start_console_chat()
     else:
-        print("Invalid mode. Choose either 'api' or 'console'.")
+        print("Invalid mode. Choose either 'api' or
