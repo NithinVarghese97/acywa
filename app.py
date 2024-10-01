@@ -1,5 +1,4 @@
 import os
-import openai
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -120,7 +119,7 @@ class Assistant:
 
     # Function to process the chat and generate responses
     def process_chat(self, question):
-        # Check if the user is new
+        # If this is the first interaction, ask if the user is new
         if self.is_new_user is None:
             if question.lower() in ['yes', 'y']:
                 self.is_new_user = True
@@ -131,7 +130,7 @@ class Assistant:
             else:
                 return "Are you new to our interactive map platform? (Yes/No)"
 
-        # Truncate chat history to avoid exceeding token limits
+        # After determining if the user is new or returning, process regular questions
         truncated_history = self.truncate_chat_history(self.chat_history, self.MAX_HISTORY_TOKENS)
         
         # Invoke the chain with the truncated chat history
