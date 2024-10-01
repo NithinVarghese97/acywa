@@ -11,6 +11,7 @@ from langchain_community.vectorstores import Chroma
 from langchain.chains import create_retrieval_chain
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain.chains.history_aware_retriever import create_history_aware_retriever
+import traceback
 
 # Load environment variables (e.g., API keys)
 load_dotenv()
@@ -36,80 +37,96 @@ class Assistant:
 
     # Function to load the text document
     def load_text(self, file_path):
-        loader = TextLoader(file_path, encoding='utf-8')
-        return loader.load()
+        try:
+            loader = TextLoader(file_path, encoding='utf-8')
+            return loader.load()
+        except Exception as e:
+            print(f"Error loading document: {e}")
+            traceback.print_exc()
 
     # Function to create the vector store using embeddings
     def create_db(self, docs):
-        embedding = OpenAIEmbeddings(openai_api_key=openai_api_key)
-        return Chroma.from_documents(docs, embedding=embedding)
+        try:
+            embedding = OpenAIEmbeddings(openai_api_key=openai_api_key)
+            return Chroma.from_documents(docs, embedding=embedding)
+        except Exception as e:
+            print(f"Error creating vector store: {e}")
+            traceback.print_exc()
 
     # Function to create the retrieval chain with your specific prompt instructions
     def create_chain(self):
-        model = ChatOpenAI(
-            model="gpt-4-turbo",  # Adjust the model as needed
-            temperature=0.4,
-            api_key=openai_api_key
-        )
+        try:
+            model = ChatOpenAI(
+                model="gpt-4-turbo",  # Adjust the model as needed
+                temperature=0.4,
+                api_key=openai_api_key
+            )
 
-        # Custom prompt logic as per your description
-        prompt = ChatPromptTemplate.from_messages([
-            ("system", "You are a helpful AI assistant chatbot specifically focused on giving a tutorial on how to navigate the Atlas map, based on {context}. "
-                       "Your primary goal is to help users with {context} only."),
-            ("system", "Context: {context}"),
-            ("system", "Instructions for {context}:"
-                       "\n1. If given a one-word or vague query, ask for clarification before proceeding."
-                       "\n2. For all users, provide the following general steps for finding data on a specific theme or indicator:"
-                       "\n   - Direct users to open the Atlas maps"
-                       "\n   - Instruct users to use the theme or indicator search box in Atlas maps"
-                       "\n   - Explain that if data is available on the topic, it will appear as a dropdown"
-                       "\n   - Do not interpret specific data or findings"
-                       "\n3. Always relate your responses back to the user's original query, regardless of the theme or indicator."),
-            MessagesPlaceholder(variable_name="chat_history"),
-            ("human", "{input}"),
-            ("system", "Remember to be concise, clear, and helpful in your responses - give a maximum of 3 sentences. "
-                       "Focus exclusively on {context} and do not discuss other topics unless explicitly asked. "
-                       "After giving guidance, suggest two relevant follow-up questions.")
-        ])
+            # Custom prompt logic as per your description
+            prompt = ChatPromptTemplate.from_messages([
+                ("system", "You are a helpful AI assistant chatbot specifically focused on giving a tutorial on how to navigate the Atlas map, based on {context}. "
+                           "Your primary goal is to help users with {context} only."),
+                ("system", "Context: {context}"),
+                ("system", "Instructions for {context}:"
+                           "\n1. If given a one-word or vague query, ask for clarification before proceeding."
+                           "\n2. For all users, provide the following general steps for finding data on a specific theme or indicator:"
+                           "\n   - Direct users to open the Atlas maps"
+                           "\n   - Instruct users to use the theme or indicator search box in Atlas maps"
+                           "\n   - Explain that if data is available on the topic, it will appear as a dropdown"
+                           "\n   - Do not interpret specific data or findings"
+                           "\n3. Always relate your responses back to the user's original query, regardless of the theme or indicator."),
+                MessagesPlaceholder(variable_name="chat_history"),
+                ("human", "{input}"),
+                ("system", "Remember to be concise, clear, and helpful in your responses - give a maximum of 3 sentences. "
+                           "Focus exclusively on {context} and do not discuss other topics unless explicitly asked. "
+                           "After giving guidance, suggest two relevant follow-up questions.")
+            ])
 
-        # Create the chain that will process documents and responses
-        chain = create_stuff_documents_chain(
-            llm=model,
-            prompt=prompt
-        )
+            # Create the chain that will process documents and responses
+            chain = create_stuff_documents_chain(
+                llm=model,
+                prompt=prompt
+            )
 
-        retriever = self.vectorStore.as_retriever(search_kwargs={"k": 1})
+            retriever = self.vectorStore.as_retriever(search_kwargs={"k": 1})
 
-        # Define prompt template for retrieval
-        retriever_prompt = ChatPromptTemplate.from_messages([
-            MessagesPlaceholder(variable_name="chat_history"),
-            ("human", "{input}"),
-            ("human", f"Given the above conversation about {self.context}, generate a search query to look up relevant information.")
-        ])
+            # Define prompt template for retrieval
+            retriever_prompt = ChatPromptTemplate.from_messages([
+                MessagesPlaceholder(variable_name="chat_history"),
+                ("human", "{input}"),
+                ("human", f"Given the above conversation about {self.context}, generate a search query to look up relevant information.")
+            ])
 
-        # Create a history-aware retriever for contextual searches
-        history_aware_retriever = create_history_aware_retriever(
-            llm=model,
-            retriever=retriever,
-            prompt=retriever_prompt
-        )
+            # Create a history-aware retriever for contextual searches
+            history_aware_retriever = create_history_aware_retriever(
+                llm=model,
+                retriever=retriever,
+                prompt=retriever_prompt
+            )
 
-        # Return the retrieval chain that processes user input
-        return create_retrieval_chain(
-            history_aware_retriever,
-            chain
-        )
+            # Return the retrieval chain that processes user input
+            return create_retrieval_chain(
+                history_aware_retriever,
+                chain
+            )
+        except Exception as e:
+            print(f"Error creating retrieval chain: {e}")
+            traceback.print_exc()
 
     # Function to process the chat and generate responses
     def process_chat(self, question):
-        response = self.chain.invoke({
-            "input": question,
-            "chat_history": self.chat_history,
-            "context": self.context  # Pass context to the chain
-        })
-        self.chat_history.append(HumanMessage(content=question))
-        self.chat_history.append(AIMessage(content=response["answer"]))
-        return response["answer"]
+        try:
+            response = self.chain.invoke({
+                "input": question,
+                "chat_history": self.chat_history,
+                "context": self.context  # Pass context to the chain
+            })
+            self.chat_history.append(HumanMessage(content=question))
+            self.chat_history.append(AIMessage(content=response["answer"]))
+            return response["answer"]
+        except Exception as e:
+            print(f"Error processing chat: {e}")
+            traceback.print_exc()
 
     # Function to reset chat history (for new users or conversation reset)
     def reset_chat_history(self):
@@ -149,11 +166,11 @@ def chat():
 
             return jsonify({"reply": bot_reply, "chat_history": serialized_history})
         except Exception as e:
-            print(f"Error: {e}")
-            return jsonify({"reply": "An error occurred while processing your request."}), 500
+            print(f"Error in chat route: {e}")
+            traceback.print_exc()
+            return jsonify({"reply": f"An error occurred while processing your request: {str(e)}"}), 500
 
     return jsonify({"reply": "No message provided."}), 400
-
 
 # Command-line Interactive Mode
 def start_console_chat():
