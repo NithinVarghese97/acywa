@@ -220,4 +220,4 @@ if __name__ == '__main__':
         # Run the console-based chat
         start_console_chat()
     else:
-        print("Invalid mode. Choose either 'api' or
+        print("Invalid mode. Choose either 'api' or 'console'.")
