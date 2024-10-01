@@ -1,5 +1,6 @@
-import os
+
 import openai
+import os
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -62,7 +63,7 @@ class Assistant:
                        "Provide a maximum of three sentences, and suggest two follow-up questions."),
             # Add context to the prompt
             ("system", "{context}")
-        ], input_variables=["chat_history", "input", "context"])
+        ])
 
         # Create the chain that will process documents and responses
         chain = create_stuff_documents_chain(
