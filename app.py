@@ -1,6 +1,5 @@
-
-import openai
 import os
+import openai
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -45,7 +44,7 @@ class Assistant:
         embedding = OpenAIEmbeddings(openai_api_key=openai_api_key)
         return Chroma.from_documents(docs, embedding=embedding)
 
-    # Function to create the retrieval chain with prompt template
+    # Function to create the retrieval chain with your specific prompt instructions
     def create_chain(self):
         model = ChatOpenAI(
             model="gpt-4-turbo",  # Adjust the model as needed
@@ -53,16 +52,24 @@ class Assistant:
             api_key=openai_api_key
         )
 
-        # Define the prompt template for responses, now including `context`
+        # Custom prompt logic as per your description
         prompt = ChatPromptTemplate.from_messages([
-            ("system", f"You are a helpful AI assistant chatbot focused on {self.context}. "
-                       f"Your primary goal is to help users navigate the platform."),
+            ("system", "You are a helpful AI assistant chatbot specifically focused on giving a tutorial on how to navigate the Atlas map, based on {context}. "
+                       "Your primary goal is to help users with {context} only."),
+            ("system", "Context: {context}"),
+            ("system", "Instructions for {context}:"
+                       "\n1. If given a one-word or vague query, ask for clarification before proceeding."
+                       "\n2. For all users, provide the following general steps for finding data on a specific theme or indicator:"
+                       "\n   - Direct users to open the Atlas maps"
+                       "\n   - Instruct users to use the theme or indicator search box in Atlas maps"
+                       "\n   - Explain that if data is available on the topic, it will appear as a dropdown"
+                       "\n   - Do not interpret specific data or findings"
+                       "\n3. Always relate your responses back to the user's original query, regardless of the theme or indicator."),
             MessagesPlaceholder(variable_name="chat_history"),
             ("human", "{input}"),
-            ("system", f"Please ensure that you give concise, clear responses based on the context of {self.context}. "
-                       "Provide a maximum of three sentences, and suggest two follow-up questions."),
-            # Add context to the prompt
-            ("system", "{context}")
+            ("system", "Remember to be concise, clear, and helpful in your responses - give a maximum of 3 sentences. "
+                       "Focus exclusively on {context} and do not discuss other topics unless explicitly asked. "
+                       "After giving guidance, suggest two relevant follow-up questions.")
         ])
 
         # Create the chain that will process documents and responses
@@ -113,12 +120,12 @@ class MapAssistant(Assistant):
     def __init__(self):
         super().__init__('Raw data - maps.txt', 'map navigation')
 
-# Route to handle homepage
+# Route to handle homepage (Flask API)
 @app.route('/')
 def index():
     return "Welcome to the Atlas Map Navigation Assistant API! Use /chat to interact."
 
-# Chat route to handle user interactions
+# Chat route to handle user interactions (Flask API)
 @app.route("/chat", methods=["POST"])
 def chat():
     data = request.get_json()
@@ -147,6 +154,53 @@ def chat():
 
     return jsonify({"reply": "No message provided."}), 400
 
-# Run Flask app
+
+# Command-line Interactive Mode
+def start_console_chat():
+    assistant = MapAssistant()
+
+    print("Hello! Welcome to the Atlas Map Navigation Assistant! Are you new to our interactive map platform? (Yes/No)")
+
+    user_response = input("You: ").lower()
+    if user_response in ['yes', 'y']:
+        assistant.is_new_user = True
+        print("Great! Let's start by familiarising you with the map platform.")
+        print("You can start by reading the help screens. Please follow these steps:")
+        print("1. Click on Atlas maps")
+        print("2. Navigate to the right-hand side pane")
+        print("3. Click the 'i' icon in the top right-hand corner")
+        print("This will open the help screens. There are three screens covering different aspects of the platform: the National scale, Atlas menu items, and map interactions.")
+        print("Are you ready to continue? (Yes/No)")
+        continue_response = input("You: ").lower()
+        if continue_response in ['yes', 'y']:
+            print("Great! What specific question can I assist you with first?")
+        else:
+            print("Alright. Feel free to ask any questions when you're ready to explore further.")
+    else:
+        print("Welcome back! I'm here to assist you with any questions about our map platform. What can I help you with today?")
+
+    while True:
+        user_input = input("You: ")
+        if user_input.lower() == 'exit':
+            print("Ending conversation. Goodbye!")
+            break
+
+        try:
+            response = assistant.process_chat(user_input)
+            print("Assistant:", response)
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            print("Let's try that again. Could you rephrase your question?")
+
+
+# Entry point for either Flask API or console mode
 if __name__ == '__main__':
-    app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    mode = input("Choose mode (api/console): ").strip().lower()
+    if mode == "api":
+        # Run the Flask app
+        app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    elif mode == "console":
+        # Run the console-based chat
+        start_console_chat()
+    else:
+        print("Invalid mode. Choose either 'api' or 'console'.")
